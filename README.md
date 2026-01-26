@@ -98,36 +98,11 @@ Stack overview:
 git clone --recurse-submodules https://github.com/leanEthereum/nim-leansig
 cd nim-leansig
 
-# Build and test (static linking by default)
+# Build and test
 nimble test
-
-# Build and test (dynamic linking)
-nimble testDynamic
 ```
 
-### Linking Options
-
-The library uses **static linking by default** for maximum portability.
-
-**Static linking (default):**
-- No runtime dependencies
-- Fully self-contained executable
-- Larger binary size (~23MB additional)
-
-```bash
-nim c -r your_app.nim
-```
-
-**Dynamic linking (opt-in):**
-- Runtime dependency on shared library (.so/.dylib/.dll)
-- Smaller binary size
-- Use standard `--dynlibOverride` flag
-
-```bash
-nim c -r --dynlibOverride your_app.nim
-# or
-nim c -r -d:dynlibOverride your_app.nim
-```
+The library uses **static linking** for maximum portability - binaries are fully self-contained with no runtime dependencies.
 
 ## Usage
 
@@ -206,23 +181,18 @@ nim-leansig/
 ### Building
 
 ```bash
-# Build Rust library (creates both .a and .so)
+# Build Rust static library
 ./build/build_rust.sh
 
-# Test with static linking (default)
+# Run tests
 nimble test
-
-# Test with dynamic linking
-nimble testDynamic
 
 # Clean build artifacts
 rm -rf lib/ nimcache/ tests/test_basic
 cargo clean --manifest-path=rust/ffi/Cargo.toml
 ```
 
-**Library files generated:**
-- `lib/libleansig_ffi.a` - Static library (~23MB, includes all dependencies)
-- `lib/libleansig_ffi.so` - Shared library (~400KB, requires runtime linking)
+The library is statically linked (~23MB .a file, includes all dependencies).
 
 ## References
 

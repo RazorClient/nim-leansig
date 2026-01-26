@@ -13,10 +13,6 @@ requires "nim >= 2.2.0"
 
 # Tasks
 
-task test, "Run tests (static linking by default)":
+task test, "Run tests":
   exec "./build/build_rust.sh"
   exec "nim c -r --path:./src tests/test_basic.nim"
-
-task testDynamic, "Run tests with dynamic linking":
-  exec "./build/build_rust.sh"
-  exec "nim c -r --path:./src -d:dynlibOverride tests/test_basic.nim"
