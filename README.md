@@ -36,11 +36,11 @@ Stack overview:
 │  └──────────────────────┬─────────────────────────────────┘  │
 │                         │                                    │
 │  ┌──────────────────────▼─────────────────────────────────┐  │
-│  │  FFI Bindings Layer (leansig_bindings.nim)            │  │
+│  │  FFI Bindings Layer (leansig_bindings.nim)             │  │
 │  │  • C ABI interface                                     │  │
 │  │  • Dynamic library loading                             │  │
 │  └──────────────────────┬─────────────────────────────────┘  │
-└─────────────────────────┼──────────────────────────────────┘
+└─────────────────────────┼─────────────────────────────────  ─┘
                           │
                           ▼
 ┌──────────────────────────────────────────────────────────────┐
@@ -98,33 +98,35 @@ Stack overview:
 git clone --recurse-submodules https://github.com/leanEthereum/nim-leansig
 cd nim-leansig
 
-# Build and test (dynamic linking)
+# Build and test (static linking by default)
 nimble test
 
-# Build and test (static linking)
-nimble testStatic
+# Build and test (dynamic linking)
+nimble testDynamic
 ```
 
 ### Linking Options
 
-The library supports both **dynamic** and **static** linking:
+The library uses **static linking by default** for maximum portability.
 
-**Dynamic linking (default):**
-- Runtime dependency on shared library (.so/.dylib/.dll)
-- Smaller binary size
-- Library can be updated independently
+**Static linking (default):**
+- No runtime dependencies
+- Fully self-contained executable
+- Larger binary size (~23MB additional)
 
 ```bash
-nim c -r --path:./src your_app.nim
+nim c -r your_app.nim
 ```
 
-**Static linking:**
-- No runtime dependencies
-- Larger binary size
-- Fully self-contained executable
+**Dynamic linking (opt-in):**
+- Runtime dependency on shared library (.so/.dylib/.dll)
+- Smaller binary size
+- Use standard `--dynlibOverride` flag
 
 ```bash
-nim c -r --path:./src -d:useStaticLinking your_app.nim
+nim c -r --dynlibOverride your_app.nim
+# or
+nim c -r -d:dynlibOverride your_app.nim
 ```
 
 ## Usage
@@ -207,11 +209,11 @@ nim-leansig/
 # Build Rust library (creates both .a and .so)
 ./build/build_rust.sh
 
-# Test with dynamic linking
+# Test with static linking (default)
 nimble test
 
-# Test with static linking
-nimble testStatic
+# Test with dynamic linking
+nimble testDynamic
 
 # Clean build artifacts
 rm -rf lib/ nimcache/ tests/test_basic
