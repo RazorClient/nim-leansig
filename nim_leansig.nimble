@@ -5,10 +5,14 @@ author        = "Agnish Ghosh"
 description   = "A new awesome nimble package"
 license       = "MIT"
 srcDir        = "src"
-
+skipDirs      = @["tests"]
 
 # Dependencies
 
 requires "nim >= 2.2.0"
-before test:
+
+# Tasks
+
+task test, "Run tests":
   exec "./build/build_rust.sh"
+  exec "nim c -r --path:./src tests/test_basic.nim"
