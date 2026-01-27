@@ -1,30 +1,29 @@
 #!/bin/sh
 set -e
 
-echo "Building Rust FFI..."
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+export CARGO_HOME="${CARGO_HOME:-${ROOT_DIR}/.cargo}"
+mkdir -p "${CARGO_HOME}"
 
-cd rust/ffi
+cd "${ROOT_DIR}"
+
+echo "Building Rust FFIs..."
+
+pushd rust/ffi > /dev/null
 cargo build --release
+popd > /dev/null
 
 echo "Copying libraries..."
 
-mkdir -p ../../lib
+mkdir -p lib
 
-# Copy shared library (.so/.dylib/.dll)
-if [ -f target/release/libleansig_ffi.so ]; then
-  cp target/release/libleansig_ffi.so ../../lib/
-fi
-if [ -f target/release/libleansig_ffi.dylib ]; then
-  cp target/release/libleansig_ffi.dylib ../../lib/
-fi
-if [ -f target/release/leansig_ffi.dll ]; then
-  cp target/release/leansig_ffi.dll ../../lib/
-fi
+copy_libs() {
+  local src_dir="$1"
+  if [ -f "$src_dir/libleansig_ffi.so" ]; then cp "$src_dir/libleansig_ffi.so" lib/; fi
+  if [ -f "$src_dir/libleansig_ffi.dylib" ]; then cp "$src_dir/libleansig_ffi.dylib" lib/; fi
+  if [ -f "$src_dir/leansig_ffi.dll" ]; then cp "$src_dir/leansig_ffi.dll" lib/; fi
+  if [ -f "$src_dir/libleansig_ffi.a" ]; then cp "$src_dir/libleansig_ffi.a" lib/; fi
+  if [ -f "$src_dir/leansig_ffi.lib" ]; then cp "$src_dir/leansig_ffi.lib" lib/; fi
+}
 
-# Copy static library (.a/.lib)
-if [ -f target/release/libleansig_ffi.a ]; then
-  cp target/release/libleansig_ffi.a ../../lib/
-fi
-if [ -f target/release/leansig_ffi.lib ]; then
-  cp target/release/leansig_ffi.lib ../../lib/
-fi
+copy_libs "rust/ffi/target/release"
