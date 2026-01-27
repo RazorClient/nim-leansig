@@ -7,11 +7,19 @@ mkdir -p "${CARGO_HOME}"
 
 cd "${ROOT_DIR}"
 
+echo "Ensuring git submodules (rust/leansig, rust/Multisig) are initialized..."
+if [ -d .git ]; then
+  git submodule update --init --recursive rust/leansig rust/Multisig
+else
+  echo "Warning: no .git directory found; skipping submodule update"
+fi
+
 echo "Building Rust FFIs..."
 
-pushd rust/ffi > /dev/null
+# Use plain cd to stay POSIX-friendly; some /bin/sh implementations lack pushd/popd.
+cd rust/ffi
 cargo build --release
-popd > /dev/null
+cd "${ROOT_DIR}"
 
 echo "Copying libraries..."
 

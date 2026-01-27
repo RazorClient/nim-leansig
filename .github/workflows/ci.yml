@@ -10,6 +10,8 @@ jobs:
   test:
     name: Test on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    env:
+      CARGO_HOME: ${{ github.workspace }}/.cargo
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
@@ -27,12 +29,12 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            rust/target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+            ${{ env.CARGO_HOME }}/bin/
+            ${{ env.CARGO_HOME }}/registry/index/
+            ${{ env.CARGO_HOME }}/registry/cache/
+            ${{ env.CARGO_HOME }}/git/db/
+            rust/ffi/target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('rust/ffi/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-
 
@@ -50,13 +52,14 @@ jobs:
             ${{ runner.os }}-nimble-
 
       - name: Build Rust FFI
-        run: bash build/build_rust.sh
+        run: make ffi
 
       - name: Run tests
-        run: nimble test -y
+        run: make test
 
       - name: Check binary size (Linux only)
         if: runner.os == 'Linux'
         run: |
-          ls -lh tests/test_basic
+          ls -lh tests/test_basic tests/test_multisig
           ldd tests/test_basic || true
+          ldd tests/test_multisig || true
