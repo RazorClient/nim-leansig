@@ -1,3 +1,6 @@
 [submodule "rust/leansig"]
 	path = rust/leansig
 	url = https://github.com/leanEthereum/leanSig
+[submodule "rust/Multisig"]
+	path = rust/Multisig
+	url = https://github.com/leanEthereum/leanMultisig.git
