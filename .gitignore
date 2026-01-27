@@ -1,3 +1,5 @@
 /lib/
 /rust/ffi/target/
 /nimcache/
+.cargo/
+/build/nimcache/

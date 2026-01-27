@@ -10,3 +10,8 @@ crate-type = ["staticlib"]
 leansig = { path = "../leansig" }
 rand = "0.9"
 sha2 = "0.10"
+sha3 = "0.10"
+rec_aggregation = { path = "../Multisig/crates/rec_aggregation" }
+xmss = { path = "../Multisig/crates/xmss" }
+whir-p3 = { git = "https://github.com/TomWambsgans/whir-p3", branch = "lean-multisig" }
+p3-koala-bear = { git = "https://github.com/TomWambsgans/Plonky3.git", branch = "lean-multisig" }

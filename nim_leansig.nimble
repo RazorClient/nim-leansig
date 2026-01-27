@@ -15,4 +15,5 @@ requires "nim >= 2.2.0"
 
 task test, "Run tests":
   exec "./build/build_rust.sh"
-  exec "nim c -r --path:./src tests/test_basic.nim"
+  exec "nim c -r --nimcache:./build/nimcache --path:./src tests/test_basic.nim"
+  exec "nim c -r --nimcache:./build/nimcache --path:./src tests/test_multisig.nim"
