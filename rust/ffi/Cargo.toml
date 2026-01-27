@@ -4,8 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [lib]
-crate-type = ["staticlib", "cdylib"]
+crate-type = ["staticlib"]
 
 [dependencies]
 leansig = { path = "../leansig" }
-rand = "0.8"
+rand = "0.9"
+sha2 = "0.10"
