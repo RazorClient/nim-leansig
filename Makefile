@@ -25,7 +25,7 @@ GIT_SUBMODULE_UPDATE := git submodule update --init --recursive $(SUBMODULE_PATH
 
 .DEFAULT_GOAL := all
 
-.PHONY: all update ffi test nimble-test clean
+.PHONY: all update ffi test nimble-test bench clean
 
 all: ffi
 
@@ -45,7 +45,12 @@ test: ffi
 nimble-test: ffi
 	@$(NIMBLE) test
 
+# Run benchmarks
+bench: ffi
+	@echo "Running benchmarks..."
+	@$(NIM) c -r $(NIM_FLAGS) -d:release benches/bench.nim
+
 # Remove build outputs
 clean:
-	@rm -rf $(LIB_DIR) $(NIMCACHE) tests/test_basic tests/test_multisig
+	@rm -rf $(LIB_DIR) $(NIMCACHE) tests/test_basic tests/test_multisig benches/bench
 	@cargo clean --manifest-path=$(RUST_FFI_DIR)/Cargo.toml

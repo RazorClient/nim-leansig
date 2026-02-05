@@ -1,5 +1,60 @@
-/lib/
-/rust/ffi/target/
+# Nim compiled artifacts
 /nimcache/
-.cargo/
 /build/nimcache/
+*.exe
+*.out
+*.app
+
+# Nim test binaries
+/tests/test_basic
+/tests/test_multisig
+/tests/test_*
+!/tests/*.nim
+
+# Nim benchmark binaries
+/benches/bench
+!/benches/*.nim
+
+# Rust build artifacts
+/rust/ffi/target/
+/rust/leansig/target/
+/rust/Multisig/target/
+**/target/
+Cargo.lock
+
+# Cargo/Rust cache
+.cargo/
+
+# Static libraries
+*.a
+*.lib
+*.rlib
+
+# Shared libraries
+*.so
+*.so.*
+*.dylib
+*.dll
+
+# Object files
+*.o
+*.obj
+
+# Generated FFI library
+/lib/
+libleansig_ffi.*
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS
+Thumbs.db
+
+# Nim package manager
+nimbledeps/
+.nimble/

@@ -70,7 +70,22 @@ make test
 
 # Alternative: nimble test (also builds ffi)
 make nimble-test
+
+# Run performance benchmarks
+make bench
+
+# See detailed benchmark results
+cat BENCHMARK_RESULTS.md
 ```
+
+## Performance
+
+Sub-millisecond signing and verification with post-quantum security:
+- **Signing:** ~0.56 ms average
+- **Verification:** ~0.36 ms average
+- **Throughput:** >1,700 ops/s for signing, >2,700 ops/s for verification
+
+See [BENCHMARK_RESULTS.md](BENCHMARK_RESULTS.md) for complete performance analysis.
 
 ## Usage (Nim)
 ```nim
@@ -91,6 +106,7 @@ doAssert sig.verify(msg, kp, 0)
 - `rust/ffi/` – Rust C-ABI crate (`leansig_ffi`).
 - `rust/leansig/` – leanSig core library (git submodule).
 - `tests/` – Nim test suites.
+- `benches/` – Comprehensive performance benchmarks (see [benches/README.md](benches/README.md)).
 - `build/` – helper scripts (e.g., `build_rust.sh`).
 
 ## Notes
