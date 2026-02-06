@@ -40,6 +40,7 @@ ffi: update
 test: ffi
 	@$(NIM) c -r $(NIM_FLAGS) tests/test_basic.nim
 	@$(NIM) c -r $(NIM_FLAGS) tests/test_multisig.nim
+	@$(NIM) c -r $(NIM_FLAGS) tests/test_leansig_rust_matrix.nim
 
 # Shortcut to delegate to nimble's built-in test task
 nimble-test: ffi
@@ -52,5 +53,5 @@ bench: ffi
 
 # Remove build outputs
 clean:
-	@rm -rf $(LIB_DIR) $(NIMCACHE) tests/test_basic tests/test_multisig benches/bench
+	@rm -rf $(LIB_DIR) $(NIMCACHE) tests/test_basic tests/test_multisig tests/test_leansig_rust_matrix benches/bench
 	@cargo clean --manifest-path=$(RUST_FFI_DIR)/Cargo.toml

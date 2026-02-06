@@ -17,6 +17,7 @@ task test, "Run tests":
   exec "./build/build_rust.sh"
   exec "nim c -r --nimcache:./build/nimcache --path:./src tests/test_basic.nim"
   exec "nim c -r --nimcache:./build/nimcache --path:./src tests/test_multisig.nim"
+  exec "nim c -r --nimcache:./build/nimcache --path:./src tests/test_leansig_rust_matrix.nim"
 
 task bench, "Run benchmarks":
   exec "./build/build_rust.sh"
