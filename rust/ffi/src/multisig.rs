@@ -67,8 +67,6 @@ impl XmssAggregateProof {
     }
 }
 
-// Helpers ----------------------------------------------------------------------------------------
-
 fn bytes_to_digest(bytes: &[u8]) -> Option<[KoalaBear; 8]> {
     if bytes.len() != XMSS_MESSAGE_LEN {
         return None;
@@ -117,11 +115,9 @@ fn copy_public_key(pk: &xmss::XmssPublicKey) -> xmss::XmssPublicKey {
     }
 }
 
-// Initialization ---------------------------------------------------------------------------------
 static XMSS_PROVER_INIT: Once = Once::new();
 static XMSS_VERIFIER_INIT: Once = Once::new();
 
-/// Initialize prover-side tables (idempotent).
 #[no_mangle]
 pub extern "C" fn xmss_setup_prover() {
     XMSS_PROVER_INIT.call_once(|| {
@@ -130,7 +126,6 @@ pub extern "C" fn xmss_setup_prover() {
     });
 }
 
-/// Initialize verifier-side tables (idempotent).
 #[no_mangle]
 pub extern "C" fn xmss_setup_verifier() {
     XMSS_VERIFIER_INIT.call_once(xmss_setup_aggregation_program);
@@ -141,7 +136,6 @@ pub extern "C" fn xmss_message_length() -> usize {
     XMSS_MESSAGE_LEN
 }
 
-// Key management ---------------------------------------------------------------------------------
 #[no_mangle]
 pub unsafe extern "C" fn xmss_keypair_generate(
     seed_phrase: *const c_char,
@@ -192,7 +186,6 @@ pub unsafe extern "C" fn xmss_keypair_get_secret_key(kp: *const XmssKeyPair) -> 
     &(*kp).secret_key
 }
 
-// Signing / verification -------------------------------------------------------------------------
 #[no_mangle]
 pub unsafe extern "C" fn xmss_sign(
     secret_key: *const XmssSecretKey,
@@ -259,7 +252,6 @@ pub unsafe extern "C" fn xmss_verify(
     }
 }
 
-// Aggregation ------------------------------------------------------------------------------------
 #[no_mangle]
 pub unsafe extern "C" fn xmss_aggregate(
     public_keys: *const *const XmssPublicKey,
@@ -344,7 +336,6 @@ pub unsafe extern "C" fn xmss_verify_aggregated(
     xmss_verify_aggregated_signatures(&pks, digest, &(*proof).bytes, slot).is_ok()
 }
 
-// Proof serialization ----------------------------------------------------------------------------
 #[no_mangle]
 pub unsafe extern "C" fn xmss_aggregate_proof_len(proof: *const XmssAggregateProof) -> usize {
     if proof.is_null() {

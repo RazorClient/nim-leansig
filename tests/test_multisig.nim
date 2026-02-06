@@ -1,5 +1,16 @@
 import unittest
 import multisig
+import std/random
+
+proc randomRunSeed(): uint64 =
+  (uint64(rand(high(int))) shl 32) xor uint64(rand(high(int)))
+
+randomize()
+let multisigRunSeed = randomRunSeed()
+echo "test_multisig run seed: ", multisigRunSeed
+
+proc testSeedPhrase(tag: string): string =
+  tag & "-" & $multisigRunSeed
 
 suite "XMSS Multisig Glue":
   setup:
@@ -10,7 +21,7 @@ suite "XMSS Multisig Glue":
     check xmssMsgLen() == 32
 
   test "keypair + sign/verify roundtrip":
-    var kp = newXmssKeyPair("multisig-seed-1", 0, 3)
+    var kp = newXmssKeyPair(testSeedPhrase("multisig-seed-1"), 0, 3)
     defer:
       kp.free()
 
@@ -29,8 +40,8 @@ suite "XMSS Multisig Glue":
 
   test "aggregate two signatures":
     # Keep parameters small for a quick sanity check.
-    var kp1 = newXmssKeyPair("multisig-seed-agg-1", 0, 3)
-    var kp2 = newXmssKeyPair("multisig-seed-agg-2", 0, 3)
+    var kp1 = newXmssKeyPair(testSeedPhrase("multisig-seed-agg-1"), 0, 3)
+    var kp2 = newXmssKeyPair(testSeedPhrase("multisig-seed-agg-2"), 0, 3)
     defer:
       kp1.free()
       kp2.free()

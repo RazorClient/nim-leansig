@@ -1,111 +1,205 @@
 import std/[times, monotimes, strformat, strutils, osproc]
 import leansig, multisig
 
+const
+  warmupRuns = 3
+  nanosecondsPerMillisecond = 1_000_000.0
+  kilohertzPerMegahertz = 1000.0
+  defaultCpuMhz = 1700.0
+  sectionWidth = 50
+  titleBorderWidth = 58
+  pageDividerWidth = 60
+
+  leanSigEpochWindow = 100'u
+  leanSigKeygenIters = 10
+  leanSigSignIters = 30
+  leanSigVerifyIters = 30
+
+  xmssFastLogLifetime = 3'u
+  xmssLongerLogLifetime = 4'u
+  xmssKeygenIters = 5
+  xmssSignIters = 20
+  xmssVerifyIters = 20
+  aggregateIters = 5
+  aggregateVerifyIters = 5
+
+proc makeSequentialMessage(length: int): seq[byte] =
+  result = newSeq[byte](length)
+  for index in 0 ..< length:
+    result[index] = byte(index mod 256)
+
+proc parseCpuMhz(command: string): float =
+  execProcess(command).strip().parseFloat()
+
+proc detectCpuMhz(): float =
+  for command in [
+    "lscpu | grep 'CPU max MHz' | awk '{print $NF}'",
+    "lscpu | grep 'CPU MHz' | head -1 | awk '{print $NF}'",
+  ]:
+    try:
+      return parseCpuMhz(command)
+    except CatchableError:
+      discard
+  defaultCpuMhz
+
 proc getSystemInfo(): string =
-  var info = ""
+  var systemInfo = ""
   let uname = execProcess("uname -sr").strip()
   let cpu = execProcess("lscpu | grep 'Model name' | cut -d: -f2").strip()
   let cores = execProcess("nproc").strip()
   let mem = execProcess("free -h | grep Mem | awk '{print $2}'").strip()
-  info.add("System: " & uname & "\n")
-  info.add("CPU: " & cpu & " (" & cores & " cores)\n")
-  info.add("Memory: " & mem & "\n")
-  info.add("Nim: " & NimVersion & "\n")
-  result = info
+  systemInfo.add("System: " & uname & "\n")
+  systemInfo.add("CPU: " & cpu & " (" & cores & " cores)\n")
+  systemInfo.add("Memory: " & mem & "\n")
+  systemInfo.add("Nim: " & NimVersion & "\n")
+  result = systemInfo
 
-proc bench(name: string, iters: int, fn: proc()) =
-  var times: seq[float] = @[]
-  for i in 0..<3: fn()
-  for i in 0..<iters:
-    let s = getMonoTime()
-    fn()
-    times.add((getMonoTime() - s).inNanoseconds.float)
-  var t, mn, mx = 0.0
-  for i, v in times:
-    t += v
-    if i == 0: mn = v; mx = v
-    if v < mn: mn = v
-    if v > mx: mx = v
-  let avgMs = t / iters.float / 1_000_000
-  let avgNs = t / iters.float
-  # Get CPU frequency for cycle calculation
-  let cpuMhz = try:
-    execProcess("lscpu | grep 'CPU max MHz' | awk '{print $NF}'").strip().parseFloat()
-  except:
-    try:
-      execProcess("lscpu | grep 'CPU MHz' | head -1 | awk '{print $NF}'").strip().parseFloat()
-    except:
-      1700.0  # fallback to default
-  let cycles = (avgNs * cpuMhz) / 1000.0
-  echo "\n", "=".repeat(50), "\n", name, "\n", "=".repeat(50)
-  echo fmt"Avg: {avgMs:.2f} ms"
-  echo fmt"Min: {mn / 1_000_000:.2f} ms | Max: {mx / 1_000_000:.2f} ms"
-  echo fmt"CPU Cycles/Op: {cycles:.0f} cycles ({cpuMhz:.0f} MHz)"
+proc runBenchmark(name: string, iterations: int, benchmarkFn: proc()) =
+  var sampleDurationsNs: seq[float] = @[]
 
-when isMainModule:
-  echo "\n╔", "═".repeat(58), "╗"
+  for _ in 0 ..< warmupRuns:
+    benchmarkFn()
+
+  for _ in 0 ..< iterations:
+    let startTime = getMonoTime()
+    benchmarkFn()
+    sampleDurationsNs.add((getMonoTime() - startTime).inNanoseconds.float)
+
+  var totalNanoseconds = 0.0
+  var minNanoseconds = sampleDurationsNs[0]
+  var maxNanoseconds = sampleDurationsNs[0]
+  for duration in sampleDurationsNs:
+    totalNanoseconds += duration
+    if duration < minNanoseconds:
+      minNanoseconds = duration
+    if duration > maxNanoseconds:
+      maxNanoseconds = duration
+
+  let averageNanoseconds = totalNanoseconds / iterations.float
+  let averageMilliseconds = averageNanoseconds / nanosecondsPerMillisecond
+  let cpuMhz = detectCpuMhz()
+  let estimatedCycles = (averageNanoseconds * cpuMhz) / kilohertzPerMegahertz
+
+  echo "\n", "=".repeat(sectionWidth), "\n", name, "\n", "=".repeat(sectionWidth)
+  echo fmt"Avg: {averageMilliseconds:.2f} ms"
+  echo fmt"Min: {minNanoseconds / nanosecondsPerMillisecond:.2f} ms | Max: {maxNanoseconds / nanosecondsPerMillisecond:.2f} ms"
+  echo fmt"CPU Cycles/Op: {estimatedCycles:.0f} cycles ({cpuMhz:.0f} MHz)"
+
+proc runAllBenchmarks() =
+  echo "\n╔", "═".repeat(titleBorderWidth), "╗"
   echo "║", " ".repeat(15), "nim-leansig Benchmarks", " ".repeat(21), "║"
-  echo "╚", "═".repeat(58), "╝"
+  echo "╚", "═".repeat(titleBorderWidth), "╝"
   echo ""
   echo getSystemInfo()
-  echo "=".repeat(60)
-  
-  bench("Keypair Gen (100 epochs)", 10, proc() =
-    var k = newLeanSigKeyPair("s", 0, 100)
-    k.free()
+  echo "=".repeat(pageDividerWidth)
+
+  runBenchmark(
+    "Keypair Gen (100 epochs)",
+    leanSigKeygenIters,
+    proc() =
+      var transientKeyPair = newLeanSigKeyPair("s", 0, leanSigEpochWindow)
+      transientKeyPair.free(),
   )
-  
-  var kp = newLeanSigKeyPair("x", 0, 100)
-  var msg = newSeq[byte](messageLength().int)
-  for i in 0..<msg.len: msg[i] = byte(i mod 256)
-  
-  bench("Signing", 30, proc() =
-    var s = kp.sign(msg, 0)
-    s.free()
+
+  var leanSigKeyPair = newLeanSigKeyPair("x", 0, leanSigEpochWindow)
+  defer:
+    leanSigKeyPair.free()
+  let leanSigMessage = makeSequentialMessage(messageLength().int)
+
+  runBenchmark(
+    "Signing",
+    leanSigSignIters,
+    proc() =
+      var transientSignature = leanSigKeyPair.sign(leanSigMessage, 0)
+      transientSignature.free(),
   )
-  
-  var sig = kp.sign(msg, 0)
-  bench("Verification", 30, proc() =
-    discard sig.verify(msg, kp, 0)
+
+  var leanSigSignature = leanSigKeyPair.sign(leanSigMessage, 0)
+  defer:
+    leanSigSignature.free()
+  runBenchmark(
+    "Verification",
+    leanSigVerifyIters,
+    proc() =
+      discard leanSigSignature.verify(leanSigMessage, leanSigKeyPair, 0),
   )
-  sig.free()
-  kp.free()
-  
+
   setupProver()
   setupVerifier()
-  
-  bench("XMSS Keypair (log=3)", 5, proc() =
-    var k = newXmssKeyPair("y", 0, 3)
-    k.free()
+
+  runBenchmark(
+    "XMSS Keypair (log=3)",
+    xmssKeygenIters,
+    proc() =
+      var transientXmssKeyPair = newXmssKeyPair("y", 0, xmssFastLogLifetime)
+      transientXmssKeyPair.free(),
   )
-  
-  var xkp = newXmssKeyPair("z", 0, 4)
-  var xmsg = newSeq[byte](xmssMsgLen())
-  for i in 0..<xmsg.len: xmsg[i] = byte(i mod 256)
-  
-  bench("XMSS Signing", 20, proc() =
-    var s = xkp.sign(xmsg, 0)
-    s.free()
+
+  var xmssKeyPair = newXmssKeyPair("z", 0, xmssLongerLogLifetime)
+  defer:
+    xmssKeyPair.free()
+  let xmssMessage = makeSequentialMessage(xmssMsgLen())
+
+  runBenchmark(
+    "XMSS Signing",
+    xmssSignIters,
+    proc() =
+      var transientXmssSignature = xmssKeyPair.sign(xmssMessage, 0)
+      transientXmssSignature.free(),
   )
-  
-  var xsig = xkp.sign(xmsg, 0)
-  bench("XMSS Verification", 20, proc() =
-    discard xsig.verify(xmsg, xkp, 0)
+
+  var xmssSignature = xmssKeyPair.sign(xmssMessage, 0)
+  defer:
+    xmssSignature.free()
+  runBenchmark(
+    "XMSS Verification",
+    xmssVerifyIters,
+    proc() =
+      discard xmssSignature.verify(xmssMessage, xmssKeyPair, 0),
   )
-  xsig.free()
-  xkp.free()
-  
-  var k1 = newXmssKeyPair("a", 0, 3)
-  var k2 = newXmssKeyPair("b", 0, 3)
-  var s1 = k1.sign(xmsg, 0)
-  var s2 = k2.sign(xmsg, 0)
-  
-  bench("Aggregate 2 Sigs", 5, proc() =
-    var p = aggregate([k1, k2], [s1, s2], xmsg, 0)
-    p.free()
+
+  var firstSignerKeyPair = newXmssKeyPair("a", 0, xmssFastLogLifetime)
+  defer:
+    firstSignerKeyPair.free()
+  var secondSignerKeyPair = newXmssKeyPair("b", 0, xmssFastLogLifetime)
+  defer:
+    secondSignerKeyPair.free()
+  var firstSignerSignature = firstSignerKeyPair.sign(xmssMessage, 0)
+  defer:
+    firstSignerSignature.free()
+  var secondSignerSignature = secondSignerKeyPair.sign(xmssMessage, 0)
+  defer:
+    secondSignerSignature.free()
+
+  runBenchmark(
+    "Aggregate 2 Sigs",
+    aggregateIters,
+    proc() =
+      var transientProof = aggregate(
+        [firstSignerKeyPair, secondSignerKeyPair],
+        [firstSignerSignature, secondSignerSignature],
+        xmssMessage,
+        0,
+      )
+      transientProof.free(),
   )
-  
-  var pr = aggregate([k1, k2], [s1, s2], xmsg, 0)
-  bench("Verify Aggregated (2)", 5, proc() =
-    discard pr.verifyAggregated([k1, k2], xmsg, 0)
+
+  var aggregateProof = aggregate(
+    [firstSignerKeyPair, secondSignerKeyPair],
+    [firstSignerSignature, secondSignerSignature],
+    xmssMessage,
+    0,
   )
+  defer:
+    aggregateProof.free()
+  runBenchmark(
+    "Verify Aggregated (2)",
+    aggregateVerifyIters,
+    proc() =
+      discard aggregateProof.verifyAggregated(
+        [firstSignerKeyPair, secondSignerKeyPair], xmssMessage, 0
+      ),
+  )
+
+when isMainModule:
+  runAllBenchmarks()

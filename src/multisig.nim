@@ -14,71 +14,79 @@ type
   XmssAggregateProof* = object
     handle: ptr AggregateProof
 
-# Basic constants
+proc messagePtr(message: openArray[byte]): ptr UncheckedArray[byte] {.inline.} =
+  if message.len == 0:
+    nil
+  else:
+    cast[ptr UncheckedArray[byte]](unsafeAddr message[0])
+
+proc requireXmssMessageLength(message: openArray[byte]) =
+  let expectedLength = int(xmss_message_length())
+  if message.len != expectedLength:
+    raise newException(ValueError, &"Message must be {expectedLength} bytes")
+
 proc xmssMsgLen*(): int =
   xmss_message_length().int
 
-# Setup helpers
 proc setupProver*() =
   xmss_setup_prover()
 
 proc setupVerifier*() =
   xmss_setup_verifier()
 
-# Key management
 proc newXmssKeyPair*(
     seedPhrase: string, firstSlot: uint64 = 0, logLifetime: uint = 4
 ): XmssKeyPair =
-  let kp = xmss_keypair_generate(cstring(seedPhrase), firstSlot, csize_t(logLifetime))
-  if kp == nil:
+  let keyPairHandle =
+    xmss_keypair_generate(cstring(seedPhrase), firstSlot, csize_t(logLifetime))
+  if keyPairHandle == nil:
     raise newException(ValueError, "Failed to generate XMSS keypair")
-  XmssKeyPair(handle: kp)
+  XmssKeyPair(handle: keyPairHandle)
 
-proc free*(kp: var XmssKeyPair) =
-  if kp.handle != nil:
-    xmss_keypair_free(kp.handle)
-    kp.handle = nil
+proc free*(keyPair: var XmssKeyPair) =
+  if keyPair.handle != nil:
+    xmss_keypair_free(keyPair.handle)
+    keyPair.handle = nil
 
 # Signing / verification
-proc sign*(kp: XmssKeyPair, message: openArray[byte], slot: uint64): XmssSignature =
-  if kp.handle == nil:
+proc sign*(
+    keyPair: XmssKeyPair, message: openArray[byte], slot: uint64
+): XmssSignature =
+  if keyPair.handle == nil:
     raise newException(ValueError, "Invalid XMSS keypair")
-  if message.len != xmssMsgLen():
-    raise newException(ValueError, &"Message must be {xmssMsgLen()} bytes")
+  requireXmssMessageLength(message)
 
-  let sk = xmss_keypair_get_secret_key(kp.handle)
-  if sk == nil:
+  let secretKey = xmss_keypair_get_secret_key(keyPair.handle)
+  if secretKey == nil:
     raise newException(ValueError, "Failed to access secret key")
 
-  let sigPtr =
-    xmss_sign(sk, cast[ptr UncheckedArray[byte]](unsafeAddr message[0]), slot)
-  if sigPtr == nil:
+  let signatureHandle = xmss_sign(secretKey, messagePtr(message), slot)
+  if signatureHandle == nil:
     raise newException(ValueError, "Signing failed")
 
-  XmssSignature(handle: sigPtr)
+  XmssSignature(handle: signatureHandle)
 
 proc verify*(
-    sig: XmssSignature, message: openArray[byte], kp: XmssKeyPair, slot: uint64
+    signature: XmssSignature,
+    message: openArray[byte],
+    keyPair: XmssKeyPair,
+    slot: uint64,
 ): bool =
-  if sig.handle == nil or kp.handle == nil:
+  if signature.handle == nil or keyPair.handle == nil:
     return false
-  if message.len != xmssMsgLen():
-    raise newException(ValueError, &"Message must be {xmssMsgLen()} bytes")
+  requireXmssMessageLength(message)
 
-  let pk = xmss_keypair_get_public_key(kp.handle)
-  if pk == nil:
+  let publicKey = xmss_keypair_get_public_key(keyPair.handle)
+  if publicKey == nil:
     return false
 
-  xmss_verify(
-    pk, cast[ptr UncheckedArray[byte]](unsafeAddr message[0]), slot, sig.handle
-  )
+  xmss_verify(publicKey, messagePtr(message), slot, signature.handle)
 
-proc free*(sig: var XmssSignature) =
-  if sig.handle != nil:
-    xmss_signature_free(sig.handle)
-    sig.handle = nil
+proc free*(signature: var XmssSignature) =
+  if signature.handle != nil:
+    xmss_signature_free(signature.handle)
+    signature.handle = nil
 
-# Aggregation
 proc aggregate*(
     keypairs: openArray[XmssKeyPair],
     signatures: openArray[XmssSignature],
@@ -89,37 +97,36 @@ proc aggregate*(
     raise newException(ValueError, "At least one keypair and signature required")
   if keypairs.len != signatures.len:
     raise newException(ValueError, "Keypair and signature counts must match")
-  if message.len != xmssMsgLen():
-    raise newException(ValueError, &"Message must be {xmssMsgLen()} bytes")
+  requireXmssMessageLength(message)
 
-  var pkPtrs = newSeq[ptr PublicKey](keypairs.len)
-  var sigPtrs = newSeq[ptr Signature](signatures.len)
+  var publicKeyHandles = newSeq[ptr PublicKey](keypairs.len)
+  var signatureHandles = newSeq[ptr Signature](signatures.len)
 
-  for i, kp in keypairs:
-    if kp.handle == nil:
+  for index, keyPair in keypairs:
+    if keyPair.handle == nil:
       raise newException(ValueError, "Invalid keypair handle")
-    pkPtrs[i] = xmss_keypair_get_public_key(kp.handle)
-    if pkPtrs[i] == nil:
+    publicKeyHandles[index] = xmss_keypair_get_public_key(keyPair.handle)
+    if publicKeyHandles[index] == nil:
       raise newException(ValueError, "Failed to read public key")
 
-  for i, sig in signatures:
-    if sig.handle == nil:
+  for index, signature in signatures:
+    if signature.handle == nil:
       raise newException(ValueError, "Invalid signature handle")
-    sigPtrs[i] = sig.handle
+    signatureHandles[index] = signature.handle
 
-  let proofPtr = xmss_aggregate(
-    cast[ptr ptr PublicKey](unsafeAddr pkPtrs[0]),
-    csize_t(pkPtrs.len),
-    cast[ptr ptr Signature](unsafeAddr sigPtrs[0]),
-    csize_t(sigPtrs.len),
-    cast[ptr UncheckedArray[byte]](unsafeAddr message[0]),
+  let proofHandle = xmss_aggregate(
+    cast[ptr ptr PublicKey](unsafeAddr publicKeyHandles[0]),
+    csize_t(publicKeyHandles.len),
+    cast[ptr ptr Signature](unsafeAddr signatureHandles[0]),
+    csize_t(signatureHandles.len),
+    messagePtr(message),
     slot,
   )
 
-  if proofPtr == nil:
+  if proofHandle == nil:
     raise newException(ValueError, "Aggregation failed")
 
-  XmssAggregateProof(handle: proofPtr)
+  XmssAggregateProof(handle: proofHandle)
 
 proc verifyAggregated*(
     proof: XmssAggregateProof,
@@ -131,21 +138,20 @@ proc verifyAggregated*(
     return false
   if keypairs.len == 0:
     return false
-  if message.len != xmssMsgLen():
-    raise newException(ValueError, &"Message must be {xmssMsgLen()} bytes")
+  requireXmssMessageLength(message)
 
-  var pkPtrs = newSeq[ptr PublicKey](keypairs.len)
-  for i, kp in keypairs:
-    if kp.handle == nil:
+  var publicKeyHandles = newSeq[ptr PublicKey](keypairs.len)
+  for index, keyPair in keypairs:
+    if keyPair.handle == nil:
       return false
-    pkPtrs[i] = xmss_keypair_get_public_key(kp.handle)
-    if pkPtrs[i] == nil:
+    publicKeyHandles[index] = xmss_keypair_get_public_key(keyPair.handle)
+    if publicKeyHandles[index] == nil:
       return false
 
   xmss_verify_aggregated(
-    cast[ptr ptr PublicKey](unsafeAddr pkPtrs[0]),
-    csize_t(pkPtrs.len),
-    cast[ptr UncheckedArray[byte]](unsafeAddr message[0]),
+    cast[ptr ptr PublicKey](unsafeAddr publicKeyHandles[0]),
+    csize_t(publicKeyHandles.len),
+    messagePtr(message),
     proof.handle,
     slot,
   )
@@ -153,26 +159,27 @@ proc verifyAggregated*(
 proc toBytes*(proof: XmssAggregateProof): seq[byte] =
   if proof.handle == nil:
     return @[]
-  let lenC = xmss_aggregate_proof_len(proof.handle)
-  if lenC == 0:
+  let encodedLengthC = xmss_aggregate_proof_len(proof.handle)
+  if encodedLengthC == 0:
     return @[]
-  let len = int(lenC)
-  result = newSeq[byte](len)
+  let encodedLength = int(encodedLengthC)
+  result = newSeq[byte](encodedLength)
   let written = xmss_aggregate_proof_copy_bytes(
-    proof.handle, cast[ptr UncheckedArray[byte]](unsafeAddr result[0]), lenC
+    proof.handle, cast[ptr UncheckedArray[byte]](unsafeAddr result[0]), encodedLengthC
   )
-  if int(written) != len:
+  if int(written) != encodedLength:
     result.setLen(0)
 
-proc fromBytes*(bytes: openArray[byte]): XmssAggregateProof =
-  if bytes.len == 0:
+proc fromBytes*(encodedProof: openArray[byte]): XmssAggregateProof =
+  if encodedProof.len == 0:
     raise newException(ValueError, "Empty proof bytes")
-  let ptrProof = xmss_aggregate_proof_from_bytes(
-    cast[ptr UncheckedArray[byte]](unsafeAddr bytes[0]), csize_t(bytes.len)
+  let proofHandle = xmss_aggregate_proof_from_bytes(
+    cast[ptr UncheckedArray[byte]](unsafeAddr encodedProof[0]),
+    csize_t(encodedProof.len),
   )
-  if ptrProof == nil:
+  if proofHandle == nil:
     raise newException(ValueError, "Failed to reconstruct proof")
-  XmssAggregateProof(handle: ptrProof)
+  XmssAggregateProof(handle: proofHandle)
 
 proc free*(proof: var XmssAggregateProof) =
   if proof.handle != nil:

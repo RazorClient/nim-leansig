@@ -1,6 +1,16 @@
 import unittest
 import leansig
-import std/sequtils
+import std/random
+
+proc randomRunSeed(): uint64 =
+  (uint64(rand(high(int))) shl 32) xor uint64(rand(high(int)))
+
+randomize()
+let basicRunSeed = randomRunSeed()
+echo "test_basic run seed: ", basicRunSeed
+
+proc testSeedPhrase(tag: string): string =
+  tag & "-" & $basicRunSeed
 
 suite "leanSig Basic Tests":
   test "library loads correctly":
@@ -14,14 +24,14 @@ suite "leanSig Basic Tests":
     echo "Message length: ", msgLen
 
   test "keypair generation works":
-    var kp = newLeanSigKeyPair("test seed phrase", 0, 100)
+    var kp = newLeanSigKeyPair(testSeedPhrase("test seed phrase"), 0, 100)
     defer:
       kp.free()
     # Just check that no exception was raised
     check true
 
   test "sign and verify works":
-    var kp = newLeanSigKeyPair("test seed phrase", 0, 100)
+    var kp = newLeanSigKeyPair(testSeedPhrase("test seed phrase"), 0, 100)
     defer:
       kp.free()
 
@@ -45,7 +55,7 @@ suite "leanSig Basic Tests":
     check valid == true
 
   test "verification fails with wrong message":
-    var kp = newLeanSigKeyPair("test seed phrase", 0, 100)
+    var kp = newLeanSigKeyPair(testSeedPhrase("test seed phrase"), 0, 100)
     defer:
       kp.free()
 
@@ -69,7 +79,7 @@ suite "leanSig Basic Tests":
     check valid == false
 
   test "verification fails with wrong epoch":
-    var kp = newLeanSigKeyPair("test seed phrase", 0, 100)
+    var kp = newLeanSigKeyPair(testSeedPhrase("test seed phrase"), 0, 100)
     defer:
       kp.free()
 
@@ -88,8 +98,8 @@ suite "leanSig Basic Tests":
     check valid == false
 
   test "multiple keypairs are independent":
-    var kp1 = newLeanSigKeyPair("seed phrase 1", 0, 100)
-    var kp2 = newLeanSigKeyPair("seed phrase 2", 0, 100)
+    var kp1 = newLeanSigKeyPair(testSeedPhrase("seed phrase 1"), 0, 100)
+    var kp2 = newLeanSigKeyPair(testSeedPhrase("seed phrase 2"), 0, 100)
     defer:
       kp1.free()
       kp2.free()
@@ -111,7 +121,7 @@ suite "leanSig Basic Tests":
     check valid == false
 
   test "can sign multiple epochs":
-    var kp = newLeanSigKeyPair("test seed phrase", 0, 100)
+    var kp = newLeanSigKeyPair(testSeedPhrase("test seed phrase"), 0, 100)
     defer:
       kp.free()
 

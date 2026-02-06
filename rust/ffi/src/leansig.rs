@@ -67,58 +67,42 @@ type SchemeCoreTargetSum = GeneralizedXMSSSignatureScheme<
     6,
 >;
 
+// Keep this order stable: scheme IDs are part of the C ABI.
 #[repr(u32)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LeanSigSchemeId {
     TopLevelTargetSumLifetime18Dim64Base8 = 0,
-    Poseidon18W1NoOff = 1,
-    Poseidon18W1Off10 = 2,
-    Poseidon18W2NoOff = 3,
-    Poseidon18W2Off10 = 4,
-    Poseidon18W4NoOff = 5,
-    Poseidon18W4Off10 = 6,
-    Poseidon18W8NoOff = 7,
-    Poseidon18W8Off10 = 8,
-    Poseidon20W1NoOff = 9,
-    Poseidon20W1Off10 = 10,
-    Poseidon20W2NoOff = 11,
-    Poseidon20W2Off10 = 12,
-    Poseidon20W4NoOff = 13,
-    Poseidon20W4Off10 = 14,
-    Poseidon20W8NoOff = 15,
-    Poseidon20W8Off10 = 16,
-    TopLevelTargetSumLifetime8Dim64Base8 = 17,
-    CoreLargeBasePoseidon = 18,
-    CoreLargeDimensionPoseidon = 19,
-    CoreTargetSumPoseidon = 20,
+    Poseidon18W1NoOff,
+    Poseidon18W1Off10,
+    Poseidon18W2NoOff,
+    Poseidon18W2Off10,
+    Poseidon18W4NoOff,
+    Poseidon18W4Off10,
+    Poseidon18W8NoOff,
+    Poseidon18W8Off10,
+    Poseidon20W1NoOff,
+    Poseidon20W1Off10,
+    Poseidon20W2NoOff,
+    Poseidon20W2Off10,
+    Poseidon20W4NoOff,
+    Poseidon20W4Off10,
+    Poseidon20W8NoOff,
+    Poseidon20W8Off10,
+    TopLevelTargetSumLifetime8Dim64Base8,
+    CoreLargeBasePoseidon,
+    CoreLargeDimensionPoseidon,
+    CoreTargetSumPoseidon,
 }
+
+const FIRST_SCHEME_ID: u32 = LeanSigSchemeId::TopLevelTargetSumLifetime18Dim64Base8 as u32;
+const LAST_SCHEME_ID: u32 = LeanSigSchemeId::CoreTargetSumPoseidon as u32;
 
 impl LeanSigSchemeId {
     fn from_raw(raw: u32) -> Option<Self> {
-        match raw {
-            0 => Some(Self::TopLevelTargetSumLifetime18Dim64Base8),
-            1 => Some(Self::Poseidon18W1NoOff),
-            2 => Some(Self::Poseidon18W1Off10),
-            3 => Some(Self::Poseidon18W2NoOff),
-            4 => Some(Self::Poseidon18W2Off10),
-            5 => Some(Self::Poseidon18W4NoOff),
-            6 => Some(Self::Poseidon18W4Off10),
-            7 => Some(Self::Poseidon18W8NoOff),
-            8 => Some(Self::Poseidon18W8Off10),
-            9 => Some(Self::Poseidon20W1NoOff),
-            10 => Some(Self::Poseidon20W1Off10),
-            11 => Some(Self::Poseidon20W2NoOff),
-            12 => Some(Self::Poseidon20W2Off10),
-            13 => Some(Self::Poseidon20W4NoOff),
-            14 => Some(Self::Poseidon20W4Off10),
-            15 => Some(Self::Poseidon20W8NoOff),
-            16 => Some(Self::Poseidon20W8Off10),
-            17 => Some(Self::TopLevelTargetSumLifetime8Dim64Base8),
-            18 => Some(Self::CoreLargeBasePoseidon),
-            19 => Some(Self::CoreLargeDimensionPoseidon),
-            20 => Some(Self::CoreTargetSumPoseidon),
-            _ => None,
+        if !(FIRST_SCHEME_ID..=LAST_SCHEME_ID).contains(&raw) {
+            return None;
         }
+        Some(unsafe { std::mem::transmute::<u32, Self>(raw) })
     }
 }
 

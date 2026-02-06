@@ -26,7 +26,6 @@ type
 proc leansig_lifetime*(): uint64 {.importc.}
 proc leansig_message_length*(): uint {.importc.}
 
-# Scheme-aware v2 API
 proc leansig_scheme_lifetime_v2*(schemeId: uint32): uint64 {.importc.}
 
 proc leansig_keypair_generate_v2*(
@@ -66,7 +65,6 @@ proc leansig_last_error_copy*(
   outBuf: ptr UncheckedArray[byte], outLen: csize_t
 ): csize_t {.importc.}
 
-# Legacy API (kept for compatibility)
 proc leansig_keypair_generate*(
   seedPhrase: cstring, activationEpoch: uint, numActiveEpochs: uint
 ): ptr KeyPair {.importc.}

@@ -1,11 +1,11 @@
 # Package
 
-version       = "0.1.0"
-author        = "Agnish Ghosh"
-description   = "A new awesome nimble package"
-license       = "MIT"
-srcDir        = "src"
-skipDirs      = @["tests"]
+version = "0.1.0"
+author = "Agnish Ghosh"
+description = "A new awesome nimble package"
+license = "MIT"
+srcDir = "src"
+skipDirs = @["tests"]
 
 # Dependencies
 

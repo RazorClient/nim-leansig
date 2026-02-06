@@ -1,30 +1,29 @@
-## High-level Nim API for leanSig post-quantum signatures
-
 import leansig_bindings
 
+# Keep this order in sync with rust/ffi/src/leansig.rs or else it will break 
 type
   LeanSigScheme* = enum
     lsTopLevelTargetSumLifetime18Dim64Base8 = 0
-    lsPoseidon18W1NoOff = 1
-    lsPoseidon18W1Off10 = 2
-    lsPoseidon18W2NoOff = 3
-    lsPoseidon18W2Off10 = 4
-    lsPoseidon18W4NoOff = 5
-    lsPoseidon18W4Off10 = 6
-    lsPoseidon18W8NoOff = 7
-    lsPoseidon18W8Off10 = 8
-    lsPoseidon20W1NoOff = 9
-    lsPoseidon20W1Off10 = 10
-    lsPoseidon20W2NoOff = 11
-    lsPoseidon20W2Off10 = 12
-    lsPoseidon20W4NoOff = 13
-    lsPoseidon20W4Off10 = 14
-    lsPoseidon20W8NoOff = 15
-    lsPoseidon20W8Off10 = 16
-    lsTopLevelTargetSumLifetime8Dim64Base8 = 17
-    lsCoreLargeBasePoseidon = 18
-    lsCoreLargeDimensionPoseidon = 19
-    lsCoreTargetSumPoseidon = 20
+    lsPoseidon18W1NoOff
+    lsPoseidon18W1Off10
+    lsPoseidon18W2NoOff
+    lsPoseidon18W2Off10
+    lsPoseidon18W4NoOff
+    lsPoseidon18W4Off10
+    lsPoseidon18W8NoOff
+    lsPoseidon18W8Off10
+    lsPoseidon20W1NoOff
+    lsPoseidon20W1Off10
+    lsPoseidon20W2NoOff
+    lsPoseidon20W2Off10
+    lsPoseidon20W4NoOff
+    lsPoseidon20W4Off10
+    lsPoseidon20W8NoOff
+    lsPoseidon20W8Off10
+    lsTopLevelTargetSumLifetime8Dim64Base8
+    lsCoreLargeBasePoseidon
+    lsCoreLargeDimensionPoseidon
+    lsCoreTargetSumPoseidon
 
   LeanSigKeyPair* = object
     handle: ptr KeyPair
@@ -47,7 +46,7 @@ proc messagePtr(message: openArray[byte]): ptr UncheckedArray[byte] {.inline.} =
     cast[ptr UncheckedArray[byte]](unsafeAddr message[0])
 
 proc requireMessageLength(message: openArray[byte]) =
-  let requiredLen = messageLength().int
+  let requiredLen = int(leansig_message_length())
   if message.len != requiredLen:
     raise newException(ValueError, "Message must be " & $requiredLen & " bytes")
 
@@ -75,7 +74,6 @@ proc raiseFfiError(context: string) {.noreturn.} =
     raise newException(ValueError, context & ": " & details)
   raise newException(ValueError, context)
 
-# Constants
 proc messageLength*(): uint =
   leansig_message_length()
 
@@ -88,7 +86,6 @@ proc lifetime*(scheme: LeanSigScheme): uint64 =
     raiseFfiError("Failed to read scheme lifetime")
   schemeLifetime
 
-# KeyPair management
 proc newLeanSigKeyPair*(
     seedPhrase: string,
     activationEpoch: uint = defaultActivationEpoch,

@@ -1,5 +1,16 @@
 import unittest
 import leansig
+import std/random
+
+proc randomRunSeed(): uint64 =
+  (uint64(rand(high(int))) shl 32) xor uint64(rand(high(int)))
+
+randomize()
+let matrixRunSeed = randomRunSeed()
+echo "test_leansig_rust_matrix run seed: ", matrixRunSeed
+
+proc caseSeed(tag: uint64): uint64 {.inline.} =
+  matrixRunSeed xor tag
 
 proc makeMessage(seed: uint64): seq[byte] =
   let msgLen = int(messageLength())
@@ -84,37 +95,69 @@ template correctnessPair(
 suite "leanSig Instantiations + Core via Nim API":
   suite "Instantiations - Standard Poseidon lifetime 2^18":
     internalConsistencyPair(
-      "l18_w1_internal_consistency", lsPoseidon18W1NoOff, lsPoseidon18W1Off10,
-      0xA5001001'u64, 0xA5001002'u64,
+      "l18_w1_internal_consistency",
+      lsPoseidon18W1NoOff,
+      lsPoseidon18W1Off10,
+      caseSeed(0xA5001001'u64),
+      caseSeed(0xA5001002'u64),
     )
     internalConsistencyPair(
-      "l18_w2_internal_consistency", lsPoseidon18W2NoOff, lsPoseidon18W2Off10,
-      0xA5002001'u64, 0xA5002002'u64,
+      "l18_w2_internal_consistency",
+      lsPoseidon18W2NoOff,
+      lsPoseidon18W2Off10,
+      caseSeed(0xA5002001'u64),
+      caseSeed(0xA5002002'u64),
     )
     internalConsistencyPair(
-      "l18_w4_internal_consistency", lsPoseidon18W4NoOff, lsPoseidon18W4Off10,
-      0xA5004001'u64, 0xA5004002'u64,
+      "l18_w4_internal_consistency",
+      lsPoseidon18W4NoOff,
+      lsPoseidon18W4Off10,
+      caseSeed(0xA5004001'u64),
+      caseSeed(0xA5004002'u64),
     )
     internalConsistencyPair(
-      "l18_w8_internal_consistency", lsPoseidon18W8NoOff, lsPoseidon18W8Off10,
-      0xA5008001'u64, 0xA5008002'u64,
+      "l18_w8_internal_consistency",
+      lsPoseidon18W8NoOff,
+      lsPoseidon18W8Off10,
+      caseSeed(0xA5008001'u64),
+      caseSeed(0xA5008002'u64),
     )
 
     correctnessPair(
-      "l18_w1_correctness (slow-tests)", lsPoseidon18W1NoOff, 0x18010001'u64, 1032'u32,
-      lsPoseidon18W1Off10, 0x18010002'u64, 32'u32,
+      "l18_w1_correctness (slow-tests)",
+      lsPoseidon18W1NoOff,
+      caseSeed(0x18010001'u64),
+      1032'u32,
+      lsPoseidon18W1Off10,
+      caseSeed(0x18010002'u64),
+      32'u32,
     )
     correctnessPair(
-      "l18_w2_correctness (slow-tests)", lsPoseidon18W2NoOff, 0x18020001'u64, 436'u32,
-      lsPoseidon18W2Off10, 0x18020002'u64, 312'u32,
+      "l18_w2_correctness (slow-tests)",
+      lsPoseidon18W2NoOff,
+      caseSeed(0x18020001'u64),
+      436'u32,
+      lsPoseidon18W2Off10,
+      caseSeed(0x18020002'u64),
+      312'u32,
     )
     correctnessPair(
-      "l18_w4_correctness (slow-tests)", lsPoseidon18W4NoOff, 0x18040001'u64, 21'u32,
-      lsPoseidon18W4Off10, 0x18040002'u64, 3211'u32,
+      "l18_w4_correctness (slow-tests)",
+      lsPoseidon18W4NoOff,
+      caseSeed(0x18040001'u64),
+      21'u32,
+      lsPoseidon18W4Off10,
+      caseSeed(0x18040002'u64),
+      3211'u32,
     )
     correctnessPair(
-      "l18_w8_correctness (slow-tests)", lsPoseidon18W8NoOff, 0x18080001'u64, 32'u32,
-      lsPoseidon18W8Off10, 0x18080002'u64, 768'u32,
+      "l18_w8_correctness (slow-tests)",
+      lsPoseidon18W8NoOff,
+      caseSeed(0x18080001'u64),
+      32'u32,
+      lsPoseidon18W8Off10,
+      caseSeed(0x18080002'u64),
+      768'u32,
     )
 
   # suite "Instantiations - Standard Poseidon lifetime 2^20 (commented out)":
@@ -188,19 +231,19 @@ suite "leanSig Instantiations + Core via Nim API":
 
   suite "Instantiations - Top-level Poseidon":
     test "top8_internal_consistency":
-      keygenSmoke(lsTopLevelTargetSumLifetime8Dim64Base8, 0xC5000001'u64)
+      keygenSmoke(lsTopLevelTargetSumLifetime8Dim64Base8, caseSeed(0xC5000001'u64))
 
     test "top8_correctness (slow-tests)":
       runCorrectnessCase(
         lsTopLevelTargetSumLifetime8Dim64Base8,
-        0x28000001'u64,
+        caseSeed(0x28000001'u64),
         213'u32,
         0,
         uint(lifetime(lsTopLevelTargetSumLifetime8Dim64Base8)),
       )
       runCorrectnessCase(
         lsTopLevelTargetSumLifetime8Dim64Base8,
-        0x28000002'u64,
+        caseSeed(0x28000002'u64),
         4'u32,
         0,
         uint(lifetime(lsTopLevelTargetSumLifetime8Dim64Base8)),
@@ -210,14 +253,14 @@ suite "leanSig Instantiations + Core via Nim API":
     test "core_large_base_poseidon":
       runCorrectnessCase(
         lsCoreLargeBasePoseidon,
-        0x30000001'u64,
+        caseSeed(0x30000001'u64),
         0'u32,
         0,
         uint(lifetime(lsCoreLargeBasePoseidon)),
       )
       runCorrectnessCase(
         lsCoreLargeBasePoseidon,
-        0x30000002'u64,
+        caseSeed(0x30000002'u64),
         11'u32,
         0,
         uint(lifetime(lsCoreLargeBasePoseidon)),
@@ -226,14 +269,14 @@ suite "leanSig Instantiations + Core via Nim API":
     test "core_large_dimension_poseidon":
       runCorrectnessCase(
         lsCoreLargeDimensionPoseidon,
-        0x30001001'u64,
+        caseSeed(0x30001001'u64),
         2'u32,
         0,
         uint(lifetime(lsCoreLargeDimensionPoseidon)),
       )
       runCorrectnessCase(
         lsCoreLargeDimensionPoseidon,
-        0x30001002'u64,
+        caseSeed(0x30001002'u64),
         19'u32,
         0,
         uint(lifetime(lsCoreLargeDimensionPoseidon)),
@@ -241,15 +284,16 @@ suite "leanSig Instantiations + Core via Nim API":
 
     test "core_ssz_panic_safety_malicious_offsets":
       let scheme = lsCoreTargetSumPoseidon
+      let maliciousSeed = caseSeed(0x30002001'u64)
       var kp = newLeanSigKeyPair(
-        seedPhrase(scheme, 0x30002001'u64), 0, uint(lifetime(scheme)), scheme
+        seedPhrase(scheme, maliciousSeed), 0, uint(lifetime(scheme)), scheme
       )
       defer:
         kp.free()
 
       let epoch = 2'u32
       kp.prepareToEpoch(epoch)
-      let message = makeMessage(0x30002001'u64)
+      let message = makeMessage(maliciousSeed)
 
       var sig = kp.sign(message, epoch)
       defer:
@@ -300,31 +344,31 @@ suite "leanSig Instantiations + Core via Nim API":
         decoded2.free()
 
   suite "Core Algorithm - Signature Scheme":
-    test "core_signature_scheme_correctness (template coverage)":
+    test "core_signature_scheme_correctness ":
       runCorrectnessCase(
         lsCoreTargetSumPoseidon,
-        0x30003001'u64,
+        caseSeed(0x30003001'u64),
         2'u32,
         0,
         uint(lifetime(lsCoreTargetSumPoseidon)),
       )
       runCorrectnessCase(
         lsCoreTargetSumPoseidon,
-        0x30003002'u64,
+        caseSeed(0x30003002'u64),
         19'u32,
         0,
         uint(lifetime(lsCoreTargetSumPoseidon)),
       )
       runCorrectnessCase(
         lsCoreTargetSumPoseidon,
-        0x30003003'u64,
+        caseSeed(0x30003003'u64),
         0'u32,
         0,
         uint(lifetime(lsCoreTargetSumPoseidon)),
       )
       runCorrectnessCase(
         lsCoreTargetSumPoseidon,
-        0x30003004'u64,
+        caseSeed(0x30003004'u64),
         11'u32,
         0,
         uint(lifetime(lsCoreTargetSumPoseidon)),
