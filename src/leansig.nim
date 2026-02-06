@@ -4,36 +4,56 @@ import leansig_bindings
 
 type
   LeanSigScheme* = enum
-    lsTopLevelTargetSumLifetime18Dim64Base8 = 0,
-    lsPoseidon18W1NoOff = 1,
-    lsPoseidon18W1Off10 = 2,
-    lsPoseidon18W2NoOff = 3,
-    lsPoseidon18W2Off10 = 4,
-    lsPoseidon18W4NoOff = 5,
-    lsPoseidon18W4Off10 = 6,
-    lsPoseidon18W8NoOff = 7,
-    lsPoseidon18W8Off10 = 8,
-    lsPoseidon20W1NoOff = 9,
-    lsPoseidon20W1Off10 = 10,
-    lsPoseidon20W2NoOff = 11,
-    lsPoseidon20W2Off10 = 12,
-    lsPoseidon20W4NoOff = 13,
-    lsPoseidon20W4Off10 = 14,
-    lsPoseidon20W8NoOff = 15,
-    lsPoseidon20W8Off10 = 16,
-    lsTopLevelTargetSumLifetime8Dim64Base8 = 17,
-    lsCoreLargeBasePoseidon = 18,
-    lsCoreLargeDimensionPoseidon = 19,
+    lsTopLevelTargetSumLifetime18Dim64Base8 = 0
+    lsPoseidon18W1NoOff = 1
+    lsPoseidon18W1Off10 = 2
+    lsPoseidon18W2NoOff = 3
+    lsPoseidon18W2Off10 = 4
+    lsPoseidon18W4NoOff = 5
+    lsPoseidon18W4Off10 = 6
+    lsPoseidon18W8NoOff = 7
+    lsPoseidon18W8Off10 = 8
+    lsPoseidon20W1NoOff = 9
+    lsPoseidon20W1Off10 = 10
+    lsPoseidon20W2NoOff = 11
+    lsPoseidon20W2Off10 = 12
+    lsPoseidon20W4NoOff = 13
+    lsPoseidon20W4Off10 = 14
+    lsPoseidon20W8NoOff = 15
+    lsPoseidon20W8Off10 = 16
+    lsTopLevelTargetSumLifetime8Dim64Base8 = 17
+    lsCoreLargeBasePoseidon = 18
+    lsCoreLargeDimensionPoseidon = 19
     lsCoreTargetSumPoseidon = 20
 
   LeanSigKeyPair* = object
-    keypair: ptr KeyPair
+    handle: ptr KeyPair
 
   LeanSigSignature* = object
-    signature: ptr Signature
+    handle: ptr Signature
+
+const
+  ffiSuccessCode = 1'i32
+  defaultActivationEpoch = 0'u
+  defaultNumActiveEpochs = 1000'u
 
 proc schemeId(scheme: LeanSigScheme): uint32 {.inline.} =
   uint32(ord(scheme))
+
+proc messagePtr(message: openArray[byte]): ptr UncheckedArray[byte] {.inline.} =
+  if message.len == 0:
+    nil
+  else:
+    cast[ptr UncheckedArray[byte]](unsafeAddr message[0])
+
+proc requireMessageLength(message: openArray[byte]) =
+  let requiredLen = messageLength().int
+  if message.len != requiredLen:
+    raise newException(ValueError, "Message must be " & $requiredLen & " bytes")
+
+proc requireValidKeyPair(keyPair: LeanSigKeyPair) =
+  if keyPair.handle == nil:
+    raise newException(ValueError, "Invalid keypair")
 
 proc ffiLastError(): string =
   let errorLen = int(leansig_last_error_len())
@@ -42,12 +62,11 @@ proc ffiLastError(): string =
 
   var buf = newSeq[byte](errorLen + 1)
   discard leansig_last_error_copy(
-    cast[ptr UncheckedArray[byte]](addr buf[0]),
-    csize_t(buf.len)
+    cast[ptr UncheckedArray[byte]](addr buf[0]), csize_t(buf.len)
   )
 
   result = newString(errorLen)
-  for i in 0..<errorLen:
+  for i in 0 ..< errorLen:
     result[i] = char(buf[i])
 
 proc raiseFfiError(context: string) {.noreturn.} =
@@ -64,123 +83,104 @@ proc lifetime*(): uint64 =
   leansig_lifetime()
 
 proc lifetime*(scheme: LeanSigScheme): uint64 =
-  let lt = leansig_scheme_lifetime_v2(schemeId(scheme))
-  if lt == 0:
+  let schemeLifetime = leansig_scheme_lifetime_v2(schemeId(scheme))
+  if schemeLifetime == 0:
     raiseFfiError("Failed to read scheme lifetime")
-  lt
+  schemeLifetime
 
 # KeyPair management
 proc newLeanSigKeyPair*(
-  seedPhrase: string,
-  activationEpoch: uint = 0,
-  numActiveEpochs: uint = 1000,
-  scheme: LeanSigScheme = lsTopLevelTargetSumLifetime18Dim64Base8
+    seedPhrase: string,
+    activationEpoch: uint = defaultActivationEpoch,
+    numActiveEpochs: uint = defaultNumActiveEpochs,
+    scheme: LeanSigScheme = lsTopLevelTargetSumLifetime18Dim64Base8,
 ): LeanSigKeyPair =
   result = LeanSigKeyPair(
-    keypair: leansig_keypair_generate_v2(
+    handle: leansig_keypair_generate_v2(
       schemeId(scheme),
       cstring(seedPhrase),
       csize_t(activationEpoch),
-      csize_t(numActiveEpochs)
+      csize_t(numActiveEpochs),
     )
   )
-  if result.keypair == nil:
+  if result.handle == nil:
     raiseFfiError("Failed to generate keypair")
 
-proc free*(kp: var LeanSigKeyPair) =
-  if kp.keypair != nil:
-    leansig_keypair_free(kp.keypair)
-    kp.keypair = nil
+proc free*(keyPair: var LeanSigKeyPair) =
+  if keyPair.handle != nil:
+    leansig_keypair_free(keyPair.handle)
+    keyPair.handle = nil
 
-proc prepareToEpoch*(kp: var LeanSigKeyPair, epoch: uint32) =
-  if kp.keypair == nil:
-    raise newException(ValueError, "Invalid keypair")
-
-  let rc = leansig_keypair_prepare_to_epoch_v2(kp.keypair, epoch)
-  if rc != 1:
+proc prepareToEpoch*(keyPair: var LeanSigKeyPair, epoch: uint32) =
+  requireValidKeyPair(keyPair)
+  let status = leansig_keypair_prepare_to_epoch_v2(keyPair.handle, epoch)
+  if status != ffiSuccessCode:
     raiseFfiError("Failed to prepare keypair")
 
 proc sign*(
-  kp: LeanSigKeyPair,
-  message: openArray[byte],
-  epoch: uint32
+    keyPair: LeanSigKeyPair, message: openArray[byte], epoch: uint32
 ): LeanSigSignature =
-  if message.len != messageLength().int:
-    raise newException(ValueError, "Message must be " & $messageLength() & " bytes")
+  requireMessageLength(message)
+  requireValidKeyPair(keyPair)
 
-  if kp.keypair == nil:
-    raise newException(ValueError, "Invalid keypair")
-
-  let msgPtr =
-    if message.len == 0:
-      nil
-    else:
-      cast[ptr UncheckedArray[byte]](unsafeAddr message[0])
-
-  let sigPtr = leansig_sign_v2(kp.keypair, msgPtr, epoch)
-  if sigPtr == nil:
+  let signatureHandle = leansig_sign_v2(keyPair.handle, messagePtr(message), epoch)
+  if signatureHandle == nil:
     raiseFfiError("Signing failed")
 
-  result = LeanSigSignature(signature: sigPtr)
+  result = LeanSigSignature(handle: signatureHandle)
 
 proc verify*(
-  sig: LeanSigSignature,
-  message: openArray[byte],
-  kp: LeanSigKeyPair,
-  epoch: uint32
+    signature: LeanSigSignature,
+    message: openArray[byte],
+    keyPair: LeanSigKeyPair,
+    epoch: uint32,
 ): bool =
-  if message.len != messageLength().int:
-    raise newException(ValueError, "Message must be " & $messageLength() & " bytes")
-
-  if sig.signature == nil or kp.keypair == nil:
+  requireMessageLength(message)
+  if signature.handle == nil or keyPair.handle == nil:
     return false
 
-  let msgPtr =
-    if message.len == 0:
-      nil
-    else:
-      cast[ptr UncheckedArray[byte]](unsafeAddr message[0])
+  let status =
+    leansig_verify_v2(keyPair.handle, messagePtr(message), epoch, signature.handle)
+  status == ffiSuccessCode
 
-  let rc = leansig_verify_v2(kp.keypair, msgPtr, epoch, sig.signature)
-  rc == 1
-
-proc toBytes*(sig: LeanSigSignature): seq[byte] =
-  if sig.signature == nil:
+proc toBytes*(signature: LeanSigSignature): seq[byte] =
+  if signature.handle == nil:
     raise newException(ValueError, "Invalid signature")
 
-  let encodedLen = int(leansig_signature_to_bytes_len_v2(sig.signature))
-  if encodedLen < 0:
+  let signatureSize = int(leansig_signature_to_bytes_len_v2(signature.handle))
+  if signatureSize < 0:
     raiseFfiError("Failed to read signature size")
-  if encodedLen == 0:
+  if signatureSize == 0:
     return @[]
 
-  result = newSeq[byte](encodedLen)
-  let copied = int(leansig_signature_to_bytes_copy_v2(
-    sig.signature,
-    cast[ptr UncheckedArray[byte]](addr result[0]),
-    csize_t(result.len)
-  ))
+  result = newSeq[byte](signatureSize)
+  let copied = int(
+    leansig_signature_to_bytes_copy_v2(
+      signature.handle,
+      cast[ptr UncheckedArray[byte]](addr result[0]),
+      csize_t(result.len),
+    )
+  )
   if copied != result.len:
     raiseFfiError("Failed to copy signature bytes")
 
 proc signatureFromBytes*(
-  scheme: LeanSigScheme,
-  encoded: openArray[byte]
+    scheme: LeanSigScheme, encodedSignature: openArray[byte]
 ): LeanSigSignature =
-  if encoded.len == 0:
+  if encodedSignature.len == 0:
     raise newException(ValueError, "Encoded signature must not be empty")
 
-  let sigPtr = leansig_signature_from_bytes_v2(
+  let signatureHandle = leansig_signature_from_bytes_v2(
     schemeId(scheme),
-    cast[ptr UncheckedArray[byte]](unsafeAddr encoded[0]),
-    csize_t(encoded.len)
+    cast[ptr UncheckedArray[byte]](unsafeAddr encodedSignature[0]),
+    csize_t(encodedSignature.len),
   )
-  if sigPtr == nil:
+  if signatureHandle == nil:
     raiseFfiError("Failed to decode signature")
 
-  result = LeanSigSignature(signature: sigPtr)
+  result = LeanSigSignature(handle: signatureHandle)
 
-proc free*(sig: var LeanSigSignature) =
-  if sig.signature != nil:
-    leansig_signature_free(sig.signature)
-    sig.signature = nil
+proc free*(signature: var LeanSigSignature) =
+  if signature.handle != nil:
+    leansig_signature_free(signature.handle)
+    signature.handle = nil

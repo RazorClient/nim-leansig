@@ -27,15 +27,9 @@ proc setupVerifier*() =
 
 # Key management
 proc newXmssKeyPair*(
-  seedPhrase: string,
-  firstSlot: uint64 = 0,
-  logLifetime: uint = 4
+    seedPhrase: string, firstSlot: uint64 = 0, logLifetime: uint = 4
 ): XmssKeyPair =
-  let kp = xmss_keypair_generate(
-    cstring(seedPhrase),
-    firstSlot,
-    csize_t(logLifetime)
-  )
+  let kp = xmss_keypair_generate(cstring(seedPhrase), firstSlot, csize_t(logLifetime))
   if kp == nil:
     raise newException(ValueError, "Failed to generate XMSS keypair")
   XmssKeyPair(handle: kp)
@@ -46,11 +40,7 @@ proc free*(kp: var XmssKeyPair) =
     kp.handle = nil
 
 # Signing / verification
-proc sign*(
-  kp: XmssKeyPair,
-  message: openArray[byte],
-  slot: uint64
-): XmssSignature =
+proc sign*(kp: XmssKeyPair, message: openArray[byte], slot: uint64): XmssSignature =
   if kp.handle == nil:
     raise newException(ValueError, "Invalid XMSS keypair")
   if message.len != xmssMsgLen():
@@ -60,17 +50,15 @@ proc sign*(
   if sk == nil:
     raise newException(ValueError, "Failed to access secret key")
 
-  let sigPtr = xmss_sign(sk, cast[ptr UncheckedArray[byte]](unsafeAddr message[0]), slot)
+  let sigPtr =
+    xmss_sign(sk, cast[ptr UncheckedArray[byte]](unsafeAddr message[0]), slot)
   if sigPtr == nil:
     raise newException(ValueError, "Signing failed")
 
   XmssSignature(handle: sigPtr)
 
 proc verify*(
-  sig: XmssSignature,
-  message: openArray[byte],
-  kp: XmssKeyPair,
-  slot: uint64
+    sig: XmssSignature, message: openArray[byte], kp: XmssKeyPair, slot: uint64
 ): bool =
   if sig.handle == nil or kp.handle == nil:
     return false
@@ -82,10 +70,7 @@ proc verify*(
     return false
 
   xmss_verify(
-    pk,
-    cast[ptr UncheckedArray[byte]](unsafeAddr message[0]),
-    slot,
-    sig.handle
+    pk, cast[ptr UncheckedArray[byte]](unsafeAddr message[0]), slot, sig.handle
   )
 
 proc free*(sig: var XmssSignature) =
@@ -95,10 +80,10 @@ proc free*(sig: var XmssSignature) =
 
 # Aggregation
 proc aggregate*(
-  keypairs: openArray[XmssKeyPair],
-  signatures: openArray[XmssSignature],
-  message: openArray[byte],
-  slot: uint64
+    keypairs: openArray[XmssKeyPair],
+    signatures: openArray[XmssSignature],
+    message: openArray[byte],
+    slot: uint64,
 ): XmssAggregateProof =
   if keypairs.len == 0 or signatures.len == 0:
     raise newException(ValueError, "At least one keypair and signature required")
@@ -128,7 +113,7 @@ proc aggregate*(
     cast[ptr ptr Signature](unsafeAddr sigPtrs[0]),
     csize_t(sigPtrs.len),
     cast[ptr UncheckedArray[byte]](unsafeAddr message[0]),
-    slot
+    slot,
   )
 
   if proofPtr == nil:
@@ -137,10 +122,10 @@ proc aggregate*(
   XmssAggregateProof(handle: proofPtr)
 
 proc verifyAggregated*(
-  proof: XmssAggregateProof,
-  keypairs: openArray[XmssKeyPair],
-  message: openArray[byte],
-  slot: uint64
+    proof: XmssAggregateProof,
+    keypairs: openArray[XmssKeyPair],
+    message: openArray[byte],
+    slot: uint64,
 ): bool =
   if proof.handle == nil:
     return false
@@ -162,7 +147,7 @@ proc verifyAggregated*(
     csize_t(pkPtrs.len),
     cast[ptr UncheckedArray[byte]](unsafeAddr message[0]),
     proof.handle,
-    slot
+    slot,
   )
 
 proc toBytes*(proof: XmssAggregateProof): seq[byte] =
@@ -174,9 +159,7 @@ proc toBytes*(proof: XmssAggregateProof): seq[byte] =
   let len = int(lenC)
   result = newSeq[byte](len)
   let written = xmss_aggregate_proof_copy_bytes(
-    proof.handle,
-    cast[ptr UncheckedArray[byte]](unsafeAddr result[0]),
-    lenC
+    proof.handle, cast[ptr UncheckedArray[byte]](unsafeAddr result[0]), lenC
   )
   if int(written) != len:
     result.setLen(0)
@@ -185,8 +168,7 @@ proc fromBytes*(bytes: openArray[byte]): XmssAggregateProof =
   if bytes.len == 0:
     raise newException(ValueError, "Empty proof bytes")
   let ptrProof = xmss_aggregate_proof_from_bytes(
-    cast[ptr UncheckedArray[byte]](unsafeAddr bytes[0]),
-    csize_t(bytes.len)
+    cast[ptr UncheckedArray[byte]](unsafeAddr bytes[0]), csize_t(bytes.len)
   )
   if ptrProof == nil:
     raise newException(ValueError, "Failed to reconstruct proof")

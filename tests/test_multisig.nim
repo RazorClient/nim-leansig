@@ -11,17 +11,19 @@ suite "XMSS Multisig Glue":
 
   test "keypair + sign/verify roundtrip":
     var kp = newXmssKeyPair("multisig-seed-1", 0, 3)
-    defer: kp.free()
+    defer:
+      kp.free()
 
     let msgLen = xmssMsgLen()
     var message = newSeq[byte](msgLen)
-    for i in 0..<msgLen:
+    for i in 0 ..< msgLen:
       message[i] = byte(i mod 251)
 
     let slot: uint64 = 1
 
     var sig = kp.sign(message, slot)
-    defer: sig.free()
+    defer:
+      sig.free()
 
     check sig.verify(message, kp, slot) == true
 
@@ -35,7 +37,7 @@ suite "XMSS Multisig Glue":
 
     let msgLen = xmssMsgLen()
     var message = newSeq[byte](msgLen)
-    for i in 0..<msgLen:
+    for i in 0 ..< msgLen:
       message[i] = byte((i * 7) mod 251)
 
     let slot: uint64 = 2
@@ -48,7 +50,8 @@ suite "XMSS Multisig Glue":
 
     # Prover init happens lazily inside aggregate; call once here.
     var proof = aggregate([kp1, kp2], [sig1, sig2], message, slot)
-    defer: proof.free()
+    defer:
+      proof.free()
 
     check proof.toBytes().len > 0
     check proof.verifyAggregated([kp1, kp2], message, slot) == true
